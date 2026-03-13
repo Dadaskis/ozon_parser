@@ -4,12 +4,8 @@ import asyncio
 
 async def main():
     print("Main - Start")
-    
-    stealth = Stealth()
-    #stealth.
 
-    async with stealth.use_async(async_playwright()) as playwright:
-    #async with async_playwright() as playwright:
+    async with Stealth().use_async(async_playwright()) as playwright:
         browser = await playwright.chromium.launch(
             headless = True,
             channel = "chromium", # For WebGL to work in headless mode
@@ -18,6 +14,7 @@ async def main():
                 # from here:
                 # https://github.com/Xammatov/Ozon_Parser/blob/main/parser.py
                 # Their descriptions make them look very *helpful*
+                # I mean it kinda works even without those arguments, but I'd rather keep them
                 "--disable-blink-features=AutomationControlled",
                 "--disable-features=UserAgentClientHint",
                 #
@@ -44,33 +41,8 @@ async def main():
         
         await asyncio.sleep(4.0)
         
-        #await page.goto("https://intoli.com/blog/making-chrome-headless-undetectable/chrome-headless-test.html")
-        #await page.goto("https://www.whatismybrowser.com/")
-        #await page.goto("chrome://version")
-        
         content = await page.content()
-        with open("output1.html", "w", encoding="utf-8") as file:
-            file.write(content)
-        
-        #print("Press Enter to die :)")
-        #input()
-
-        # webgl_status = await page.evaluate("""
-        #     () => {
-        #         const canvas = document.createElement('canvas');
-        #         const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-        #         if (!gl) return 'WebGL not available';
-        #         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        #         if (debugInfo) {
-        #             return {
-        #                 vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
-        #                 renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
-        #             };
-        #         }
-        #         return 'WebGL available but renderer info masked';
-        #     }
-        # """)
-        # print("WebGL Status:", webgl_status)
+        print(f"HTML length: {len(content)}")
         
         await browser.close()
 
