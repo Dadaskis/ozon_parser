@@ -1,7 +1,6 @@
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 import asyncio
-import random
 
 async def main():
     print("Main - Start")
@@ -11,85 +10,68 @@ async def main():
 
     async with stealth.use_async(async_playwright()) as playwright:
     #async with async_playwright() as playwright:
-        user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        ]
-
         browser = await playwright.chromium.launch(
-            headless=False,
-            args=[
-                #'--no-sandbox',
-                #'--disable-dev-shm-usage',
-                #'--disable-gpu',
-                #'--disable-extensions',
-                #'--disable-setuid-sandbox',
-                #'--disable-blink-features=AutomationControlled',
-                #'--disable-features=UserAgentClientHint',
-                #'--window-size=1920,1080',
-                #'--start-maximized',
+            headless = True,
+            channel = "chromium", # For WebGL to work in headless mode
+            args = [
+                # I don't know what are these arguments, I just have stolen them
+                # from here:
+                # https://github.com/Xammatov/Ozon_Parser/blob/main/parser.py
+                # Their descriptions make them look very *helpful*
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=UserAgentClientHint",
+                #
+                # And that bunch of arguments is needed to make WebGL work in
+                # headless mode. One of the reasons why headless mode failed
+                # when entering Ozon website is because WebGL tests had failed.
+                # UPDATE: Actually, they aren't required for WebGL to function normally...
+                # Whatever, I'll just keep them here.
+                #
+                # "--use-angle=vulkan",
+                # "--enable-features=Vulkan",
+                # "--disable-vulkan-surface",
+                # "--enable-unsafe-webgpu",  # Also enables WebGPU if needed
+                # "--ignore-gpu-blocklist",
+                # "--enable-gpu",
+                # "--enable-webgl",
+                # "--use-gl=desktop",  # Force desktop GL over SwiftShader
+                # "--no-sandbox",  # Often needed in containerized environments
             ]
         )
-
-        context = await browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent=random.choice(user_agents),
-            locale='ru-RU',
-            timezone_id='Europe/Moscow',
-            permissions=['geolocation'],
-            extra_http_headers={
-                'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            }
-        )
-
-        await stealth.apply_stealth_async(context)
         
-        await context.add_init_script("""
-            // Override navigator.webdriver
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-            
-            // Override navigator.plugins
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            
-            // Override navigator.languages
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['ru-RU', 'ru', 'en-US', 'en']
-            });
-            
-            // Override chrome object
-            window.chrome = {
-                runtime: {},
-                loadTimes: function() {},
-                csi: function() {},
-                app: {}
-            };
-            
-            // Override permissions
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                    Promise.resolve({ state: Notification.permission }) :
-                    originalQuery(parameters)
-            );
-        """)
-        
-        # Create a new page
-        page = await context.new_page()
-
-        #page = await browser.new_page()
+        page = await browser.new_page()
         await page.goto("https://ozon.by/")
-        await asyncio.sleep(20.0)
+        
+        await asyncio.sleep(4.0)
+        
         #await page.goto("https://intoli.com/blog/making-chrome-headless-undetectable/chrome-headless-test.html")
         #await page.goto("https://www.whatismybrowser.com/")
         #await page.goto("chrome://version")
+        
         content = await page.content()
         with open("output1.html", "w", encoding="utf-8") as file:
             file.write(content)
+        
         #print("Press Enter to die :)")
         #input()
+
+        # webgl_status = await page.evaluate("""
+        #     () => {
+        #         const canvas = document.createElement('canvas');
+        #         const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        #         if (!gl) return 'WebGL not available';
+        #         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        #         if (debugInfo) {
+        #             return {
+        #                 vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+        #                 renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        #             };
+        #         }
+        #         return 'WebGL available but renderer info masked';
+        #     }
+        # """)
+        # print("WebGL Status:", webgl_status)
+        
         await browser.close()
 
     print("Main - End")
