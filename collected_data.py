@@ -28,3 +28,6 @@ class OzonCollectedData:
     
     def debug_print(self):
         print(self.df.to_string(max_colwidth=40))
+    
+    def get_count(self):
+        return len(self.df)
