@@ -33,11 +33,19 @@ class OzonScraper:
         self.logger.info(f"Gather Info: {item_name}")
         
         self.logger.info("Calling a searcher...")
-        data = await self.searcher.search_info(item_name, max_items)
+
+        desc_queue = asyncio.Queue()
+
+        data = OzonCollectedData()
+
+        tasks = [self.searcher.search_info(item_name, max_items, desc_queue, data)]
 
         if collect_desc:
-            await self.desc_peeker.fill_descriptions(data)
+            tasks.append(self.desc_peeker.fill_descriptions(desc_queue, data))
 
+        await asyncio.gather(*tasks)
+
+        data.debug_print()
         data.save_file(item_name)
 
         end_time = time.time()

@@ -61,42 +61,42 @@ class OzonDescriptionPeeker:
             self.logger.error("Exception occured during shutdown", exc_info=True)
         self.logger.info("Stop - Ending.")
     
-    async def fill_descriptions(self, items: OzonCollectedData):
-        items_list = items.get_list()
+    async def fill_descriptions(self, queue: asyncio.Queue, col_data: OzonCollectedData):
         counter = 0
-        for data in items_list:
-            url = f"https://ozon.by{data.url}"
+        try:
+            while True:
+                data = await queue.get()
 
-            self.logger.info(f"Processing description [{counter}/{len(items_list)}]")
+                url = f"https://ozon.by{data.url}"
 
-            if data.description == "Undefined":
+                self.logger.info(f"Processing description [{counter}/{queue.qsize()}]")
+
+                if data.description != "Undefined":
+                    counter += 1
+                    continue
+
+                #self.logger.info(url)
+                
+                await self.page.goto(url)
+                await asyncio.sleep(3.0)
+                await self.page.wait_for_load_state("networkidle")
+
+                # self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
+                # content = await self.page.content()
+                # with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
+                #     file.write(content)
+
+                try: 
+                    content = await self.page.content()
+                    bs = BeautifulSoup(content, features="lxml")
+                    desc = bs.find("div", id="section-description").get_text()
+                    data.description = desc
+                except Exception:
+                    self.logger.error("Failed to fetch a description", exc_info=True)
+                    data.description = "Error"
+                
+                col_data.add_item(data)
+
                 counter += 1
-                continue
-
-            #self.logger.info(url)
-            
-            await self.page.goto(url)
-            await asyncio.sleep(3.0)
-            await self.page.wait_for_load_state("networkidle")
-
-            self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
-            content = await self.page.content()
-            with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
-                file.write(content)
-
-            try: 
-                content = await self.page.content()
-                bs = BeautifulSoup(content, features="lxml")
-                desc = bs.find("div", id="section-description").get_text()
-                data.description = desc
-            except Exception:
-                self.logger.error("Failed to fetch a description", exc_info=True)
-                data.description = "Error"
-
-            items.add_item(data)
-
-            counter += 1
-        
-        items.debug_print()
-
-        self.logger.info("Descriptions done!")
+        except asyncio.QueueShutDown:
+            self.logger.info("Descriptions done!")

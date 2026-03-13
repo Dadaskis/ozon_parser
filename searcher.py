@@ -81,7 +81,7 @@ class OzonSearcher:
             self.logger.error("Exception occured during shutdown", exc_info=True)
         self.logger.info("Stop - Ending.")
 
-    async def search_info(self, item_name: str, max_items: int) -> OzonCollectedData:
+    async def search_info(self, item_name: str, max_items: int, desc_queue: asyncio.Queue, col_data: OzonCollectedData):
         self.logger.info(f"Searching Info: {item_name}")
 
         self.logger.info(f"Using a searchbar to search '{item_name}'...")
@@ -104,11 +104,9 @@ class OzonSearcher:
         
         self.previous_search_value = item_name
 
-        return await self.parse_the_grid(max_items)
+        await self.parse_the_grid(max_items, desc_queue, col_data)
     
-    async def parse_the_grid(self, max_items: int) -> OzonCollectedData:
-        data = OzonCollectedData()
-
+    async def parse_the_grid(self, max_items: int, desc_queue: asyncio.Queue, data: OzonCollectedData):
         item_difference = 1
 
         counter = 0
@@ -126,6 +124,7 @@ class OzonSearcher:
                     can_be_added = await self.parse_grid_element(child, item)
                     if can_be_added:
                         data.add_item(item)
+                        await desc_queue.put(item)
                         counter += 1
                         self.logger.info(f"Items processed: {counter}")
             
@@ -141,9 +140,9 @@ class OzonSearcher:
                 await self.page.mouse.wheel(0, 500)
                 await asyncio.sleep(0.5)
         
-        data.debug_print()
+        #data.debug_print()
 
-        return data
+        desc_queue.shutdown()
     
     async def parse_grid_element(self, child: PageElement, item: OzonItem) -> bool:
         tags = child.find_all(recursive=False)
