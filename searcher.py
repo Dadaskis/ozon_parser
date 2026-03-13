@@ -5,10 +5,10 @@ import asyncio
 
 class OzonSearcher:
     def __init__(self):
-        self.logger = logging.getLogger("OzonScraper")
+        self.logger = logging.getLogger("OzonSearcher")
 
-    async def gather_info(self, item_name: str):
-        self.logger.info(f"Gather Info: {item_name}")
+    async def search_info(self, item_name: str):
+        self.logger.info(f"Searching Info: {item_name}")
         self.logger.info("Starting Playwright...")
         async with Stealth().use_async(async_playwright()) as playwright:
             self.logger.info("Playwright online!")
@@ -43,13 +43,35 @@ class OzonSearcher:
                 ]
             )
             self.logger.info("Browser is intact!")
+            
             self.logger.info("Creating a page...")
             page = await browser.new_page()
+            
             self.logger.info("Going to ozon.by...")
             await page.goto("https://ozon.by")
-            self.logger.info("Waiting for the page to load - 5 seconds...")
-            await asyncio.sleep(5.0)
-            self.logger.info("Waiting is over, obtaining the page content.")
+            
+            self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
+            await asyncio.sleep(3.0)
+            
+            self.logger.info("Waiting for the searchbar to load...")
+            await page.wait_for_load_state("networkidle")
+
+            self.logger.info(f"Waiting is over, using a searchbar to search '{item_name}'...")
+            #search_box = page.get_by_role("input")
+            search_box = page.locator("input")
+            self.logger.info(f"Search box: {search_box}")
+            await search_box.fill(item_name)
+            await search_box.press("Enter")
+
+            self.logger.info("Waiting for the page to load...")
+            await page.wait_for_load_state("networkidle")
+            
+            # self.logger.info("Waiting is over, obtaining the page content.")
+            # content = await page.content()
+            # self.logger.info(f"HTML length: {len(content)}")
+
+            self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
             content = await page.content()
-            self.logger.info(f"HTML length: {len(content)}")
+            with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
+                file.write(content)
             
