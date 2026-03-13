@@ -1,5 +1,6 @@
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
+from collected_data import OzonCollectedData
 import logging
 import asyncio
 
@@ -9,6 +10,7 @@ class OzonSearcher:
         self.browser = None
         self.playwright_manager = None
         self.playwright = None
+        self.page = None
     
     async def start(self):
         self.logger.info("Start - Beginning.")
@@ -50,6 +52,18 @@ class OzonSearcher:
         )
         self.logger.info("Browser is intact!")
 
+        self.logger.info("Creating a page...")
+        self.page = await self.browser.new_page()
+        
+        self.logger.info("Going to ozon.by...")
+        await self.page.goto("https://ozon.by")
+        
+        self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
+        await asyncio.sleep(3.0)
+        
+        self.logger.info("Waiting for the page to load fully...")
+        await self.page.wait_for_load_state("networkidle")
+
         self.logger.info("Start - Ending.")
     
     async def stop(self):
@@ -63,34 +77,22 @@ class OzonSearcher:
 
     async def search_info(self, item_name: str):
         self.logger.info(f"Searching Info: {item_name}")
-            
-        self.logger.info("Creating a page...")
-        page = await self.browser.new_page()
-        
-        self.logger.info("Going to ozon.by...")
-        await page.goto("https://ozon.by")
-        
-        self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
-        await asyncio.sleep(3.0)
-        
-        self.logger.info("Waiting for the searchbar to load...")
-        await page.wait_for_load_state("networkidle")
 
-        self.logger.info(f"Waiting is over, using a searchbar to search '{item_name}'...")
-        search_box = page.locator("input")
-        self.logger.info(f"Search box: {search_box}")
+        self.logger.info(f"Using a searchbar to search '{item_name}'...")
+        search_box = self.page.locator("input")
         await search_box.fill(item_name)
         await search_box.press("Enter")
 
         self.logger.info("Waiting for the page to load...")
-        await page.wait_for_load_state("networkidle")
-        
-        # self.logger.info("Waiting is over, obtaining the page content.")
-        # content = await page.content()
-        # self.logger.info(f"HTML length: {len(content)}")
+        await self.page.wait_for_load_state("networkidle")
 
-        self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
-        content = await page.content()
-        with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
-            file.write(content)
+        return await self.parse_the_grid()
+
+        # self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
+        # content = await self.page.content()
+        # with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
+        #     file.write(content)\
+    
+    async def parse_the_grid(self) -> OzonCollectedData:
+        pass
             

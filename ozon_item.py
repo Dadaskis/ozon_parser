@@ -13,7 +13,7 @@ class OzonItem:
         self.ratings_amount = "0"
         self.price = "0"
         self.description = "Undefined"
-        self.index = 0
+        self.index = -1
         self.url = "https://ozon.by/404"
 
     def get_pandas_dict(self):
@@ -25,3 +25,6 @@ class OzonItem:
             "description": [self.description],
             "url": [self.url]
         }
+
+    def get_pandas_list(self):
+        return [self.name, self.rating, self.ratings_amount, self.price, self.description, self.url]
