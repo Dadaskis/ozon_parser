@@ -24,7 +24,10 @@ class OzonCollectedData:
     def save_file(self, file_name: str):
         if not os.path.exists("export/"):
             os.mkdir("export/")
-        self.df.to_csv(f"export/{file_name}")
+        self.df.to_csv(f"export/{file_name}.csv")
+    
+    def get_list(self) -> List[OzonItem]:
+        return self.items
     
     def debug_print(self):
         print(self.df.to_string(max_colwidth=40))

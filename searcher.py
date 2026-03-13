@@ -81,7 +81,7 @@ class OzonSearcher:
             self.logger.error("Exception occured during shutdown", exc_info=True)
         self.logger.info("Stop - Ending.")
 
-    async def search_info(self, item_name: str) -> OzonCollectedData:
+    async def search_info(self, item_name: str, max_items: int) -> OzonCollectedData:
         self.logger.info(f"Searching Info: {item_name}")
 
         self.logger.info(f"Using a searchbar to search '{item_name}'...")
@@ -104,9 +104,9 @@ class OzonSearcher:
         
         self.previous_search_value = item_name
 
-        return await self.parse_the_grid()
+        return await self.parse_the_grid(max_items)
     
-    async def parse_the_grid(self) -> OzonCollectedData:
+    async def parse_the_grid(self, max_items: int) -> OzonCollectedData:
         data = OzonCollectedData()
 
         item_difference = 1
@@ -133,7 +133,7 @@ class OzonSearcher:
 
             item_difference = items_count_after - items_count_before
 
-            if data.get_count() > 100:
+            if data.get_count() > max_items:
                 self.logger.info("Hitting a limit!")
                 break
             
@@ -177,7 +177,8 @@ class OzonSearcher:
             if len(elements) != 2:
                 continue
             if elements[0].name == "span" and elements[1].name == "span":
-                div_rating = child
+                if len(elements[0].find_all(recursive=False)) == 2:
+                    div_rating = child
         if div_rating:
             rating, ratings_amount = await self.parse_rating_div(div_rating)
             item.rating = rating

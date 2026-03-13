@@ -1,0 +1,102 @@
+from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
+from collected_data import OzonCollectedData
+from ozon_item import OzonItem
+from bs4 import BeautifulSoup, PageElement
+import logging
+import asyncio
+import re
+
+class OzonDescriptionPeeker:
+    def __init__(self):
+        self.logger = logging.getLogger("OzonDescriptionPeeker")
+        self.browser = None
+        self.playwright_manager = None
+        self.playwright = None
+        self.page = None
+        self.previous_search_value = ""
+        self.parsed_URLs = {}
+    
+    async def start(self):
+        self.logger.info("Start - Beginning.")
+
+        self.logger.info("Starting Playwright...")
+        self.playwright_manager = Stealth().use_async(async_playwright())
+        self.playwright = await self.playwright_manager.__aenter__()
+        self.logger.info("Playwright started!")
+
+        self.logger.info("Launching a browser...")
+        self.browser = await self.playwright.chromium.launch(
+            headless = True,
+            #headless = False,
+            channel = "chromium", # For WebGL to work in headless mode
+            args = [
+                # A bunch of comments were removed from here, take a look at searcher.py
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=UserAgentClientHint"
+            ]
+        )
+        self.logger.info("Browser is intact!")
+
+        self.logger.info("Creating a page...")
+        self.page = await self.browser.new_page()
+
+        self.logger.info("Going to ozon.by...")
+        await self.page.goto("https://ozon.by")
+        
+        self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
+        await asyncio.sleep(3.0)
+        
+        self.logger.info("Waiting for the page to load fully...")
+        await self.page.wait_for_load_state("networkidle")
+
+        self.logger.info("Start - Ending.")
+    
+    async def stop(self):
+        self.logger.info("Stop - Beginning.")
+        try:
+            await self.browser.close()
+            await self.playwright_manager.__aexit__(None, None, None)
+        except Exception:
+            self.logger.error("Exception occured during shutdown", exc_info=True)
+        self.logger.info("Stop - Ending.")
+    
+    async def fill_descriptions(self, items: OzonCollectedData):
+        items_list = items.get_list()
+        counter = 0
+        for data in items_list:
+            url = f"https://ozon.by{data.url}"
+
+            self.logger.info(f"Processing description [{counter}/{len(items_list)}]")
+
+            if data.description == "Undefined":
+                counter += 1
+                continue
+
+            #self.logger.info(url)
+            
+            await self.page.goto(url)
+            await asyncio.sleep(3.0)
+            await self.page.wait_for_load_state("networkidle")
+
+            self.logger.info("Exporting HTML to DEBUG_OUTPUT.html")
+            content = await self.page.content()
+            with open("DEBUG_OUTPUT.html", "w", encoding="utf-8") as file:
+                file.write(content)
+
+            try: 
+                content = await self.page.content()
+                bs = BeautifulSoup(content, features="lxml")
+                desc = bs.find("div", id="section-description").get_text()
+                data.description = desc
+            except Exception:
+                self.logger.error("Failed to fetch a description", exc_info=True)
+                data.description = "Error"
+
+            items.add_item(data)
+
+            counter += 1
+        
+        items.debug_print()
+
+        self.logger.info("Descriptions done!")
