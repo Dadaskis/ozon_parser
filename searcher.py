@@ -142,6 +142,8 @@ class OzonSearcher:
         
         #data.debug_print()
 
+        self.logger.info("Queue shutdown!")
+
         desc_queue.shutdown()
     
     async def parse_grid_element(self, child: PageElement, item: OzonItem) -> bool:

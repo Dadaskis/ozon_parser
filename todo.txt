@@ -1,0 +1,5 @@
+ADD PROXY ROTATION FOR ONCE (even though I have no proxies that'd work here...)
+
+And maybe User Agents rotation too, I don't know, maybe go for TempleOS UA again
+
+Also descriptions get rate-limited and it needs to be detected somehow
