@@ -1,4 +1,4 @@
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Locator
 from playwright_stealth import Stealth
 from collected_data import OzonCollectedData
 from ozon_item import OzonItem
@@ -114,12 +114,15 @@ class OzonSearcher:
         while item_difference > 0:
             items_count_before = data.get_count()
 
-            content = await self.page.content()
-            bs = BeautifulSoup(content, features="lxml")
+            #content = await self.page.content()
+            #bs = BeautifulSoup(content, features="lxml")
 
-            grids = bs.find_all("div", attrs = {"data-widget" : "tileGridDesktop"})
+            #grids = bs.find_all("div", attrs = {"data-widget" : "tileGridDesktop"})
+
+            grids = await self.page.locator('div[data-widget="tileGridDesktop"]').all()
+
             for grid in grids:
-                for child in grid.children:
+                for child in await grid.locator("> *").all():
                     item = OzonItem()
                     can_be_added = await self.parse_grid_element(child, item)
                     if can_be_added:
@@ -146,12 +149,13 @@ class OzonSearcher:
 
         desc_queue.shutdown()
     
-    async def parse_grid_element(self, child: PageElement, item: OzonItem) -> bool:
-        tags = child.find_all(recursive=False)
+    async def parse_grid_element(self, child: Locator, item: OzonItem) -> bool:
+        #tags = child.find_all(recursive=False)
+        tags = await child.locator("> *").all()
             
         a_link = tags[0]
         
-        url = a_link.get("href")
+        url = await a_link.get_attribute("href")
         if self.parsed_URLs.get(url, False) == True:
             return False
         
@@ -163,22 +167,24 @@ class OzonSearcher:
 
         return True
     
-    async def parse_grid_bottom_element(self, bottom_div: PageElement, item: OzonItem):
-        children = bottom_div.find_all(recursive=False)
+    async def parse_grid_bottom_element(self, bottom_div: Locator, item: OzonItem):
+        children = await bottom_div.locator("> *").all()
 
-        a_name = bottom_div.find("a")
-        item.name = a_name.get_text()
+        a_name = (await bottom_div.locator("a").all())[0]
+        item.name = await a_name.text_content()
 
         div_price = children[0]
         item.price = await self.parse_price_div(div_price)
 
         div_rating = None
         for child in children:
-            elements = child.find_all(recursive=False)
+            elements = await child.locator("> *").all()
             if len(elements) != 2:
                 continue
-            if elements[0].name == "span" and elements[1].name == "span":
-                if len(elements[0].find_all(recursive=False)) == 2:
+            elem0_name = await elements[0].evaluate("el => el.tagName")
+            elem1_name = await elements[1].evaluate("el => el.tagName")
+            if elem0_name == "span" and elem1_name == "span":
+                if len(await elements[0].locator("> *").all()) == 2:
                     div_rating = child
         if div_rating:
             rating, ratings_amount = await self.parse_rating_div(div_rating)
@@ -189,18 +195,17 @@ class OzonSearcher:
         """Extract only digits using regex"""
         return re.sub(r'\D', '', text)  # \D matches any non-digit character
     
-    async def parse_price_div(self, div_price: PageElement) -> str:
-        div_price = div_price.find_all(recursive=False)[0]
-        span_price = div_price.find_all(recursive=False)[0]
-        price_text = span_price.get_text()
+    async def parse_price_div(self, div_price: Locator) -> str:
+        div_price = (await div_price.locator("> *").all())[0]
+        span_price = (await div_price.locator("> *").all())[0]
+        price_text = await span_price.text_content()
         price_text = price_text.split(" ")[0] # This tiny space is a fucking nightmare fuel
         price_text = price_text.replace(",", ".")
         return price_text
     
-    async def parse_rating_div(self, div_rating: PageElement) -> tuple[str, str]:
-        children = div_rating.find_all(recursive=False)
-        rating = children[0].get_text()
-        ratings_amount = children[1].get_text()
+    async def parse_rating_div(self, div_rating: Locator) -> tuple[str, str]:
+        children = await div_rating.locator("> *").all()
+        rating = await children[0].text_content()
+        ratings_amount = await children[1].text_content()
         ratings_amount = self.extract_numbers_regex(ratings_amount)
         return rating, ratings_amount
-
