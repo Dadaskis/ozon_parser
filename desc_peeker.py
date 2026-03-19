@@ -17,7 +17,7 @@ class OzonDescriptionPeeker:
         self.previous_search_value = ""
         self.parsed_URLs = {}
     
-    async def start(self):
+    async def start(self, use_headless = True):
         self.logger.info("Start - Beginning.")
 
         self.logger.info("Starting Playwright...")
@@ -27,7 +27,7 @@ class OzonDescriptionPeeker:
 
         self.logger.info("Launching a browser...")
         self.browser = await self.playwright.chromium.launch(
-            headless = True,
+            headless = use_headless,
             #headless = False,
             channel = "chromium", # For WebGL to work in headless mode
             args = [
@@ -46,6 +46,10 @@ class OzonDescriptionPeeker:
         
         self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
         await asyncio.sleep(3.0)
+
+        #html = await self.page.content()
+        #if "document.querySelector('.challenge-information');" in html:
+        #    raise Exception("We didn't pass the bot check")
         
         self.logger.info("Waiting for the page to load fully...")
         await self.page.wait_for_load_state("networkidle")

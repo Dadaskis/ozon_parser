@@ -12,11 +12,11 @@ class OzonScraper:
         self.desc_peeker = OzonDescriptionPeeker()
         self.data = OzonCollectedData()
 
-    async def start(self):
+    async def start(self, use_headless = True):
         self.logger.info("Start - Beginning.")
         tasks = [
-            self.searcher.start(),
-            self.desc_peeker.start()
+            self.searcher.start(use_headless=use_headless),
+            self.desc_peeker.start(use_headless=use_headless)
         ]
         await asyncio.gather(*tasks)
         self.logger.info("Start - Finished.")

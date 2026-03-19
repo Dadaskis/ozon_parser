@@ -17,7 +17,7 @@ class OzonSearcher:
         self.previous_search_value = ""
         self.parsed_URLs = {}
     
-    async def start(self):
+    async def start(self, use_headless = True):
         self.logger.info("Start - Beginning.")
 
         self.logger.info("Starting Playwright...")
@@ -27,8 +27,8 @@ class OzonSearcher:
 
         self.logger.info("Launching a browser...")
         self.browser = await self.playwright.chromium.launch(
-            headless = True,
-            #headless = False,
+            #headless = True,
+            headless = use_headless,
             channel = "chromium", # For WebGL to work in headless mode
             args = [
                 # I don't know what are these arguments, I just have stolen them
@@ -38,6 +38,8 @@ class OzonSearcher:
                 # I mean it kinda works even without those arguments, but I'd rather keep them
                 "--disable-blink-features=AutomationControlled",
                 "--disable-features=UserAgentClientHint",
+                #"--headless=new",
+                #"--use-gl=osmesa",
                 #
                 # And that bunch of arguments is needed to make WebGL work in
                 # headless mode. One of the reasons why headless mode failed
@@ -45,15 +47,15 @@ class OzonSearcher:
                 # UPDATE: Actually, they aren't required for WebGL to function normally...
                 # Whatever, I'll just keep them here.
                 #
-                # "--use-angle=vulkan",
-                # "--enable-features=Vulkan",
-                # "--disable-vulkan-surface",
-                # "--enable-unsafe-webgpu",  # Also enables WebGPU if needed
-                # "--ignore-gpu-blocklist",
+                "--use-angle=vulkan",
+                "--enable-features=Vulkan",
+                "--disable-vulkan-surface",
+                "--enable-unsafe-webgpu",  # Also enables WebGPU if needed
+                "--ignore-gpu-blocklist",
                 # "--enable-gpu",
                 # "--enable-webgl",
-                # "--use-gl=desktop",  # Force desktop GL over SwiftShader
-                # "--no-sandbox",  # Often needed in containerized environments
+                "--use-gl=desktop",  # Force desktop GL over SwiftShader
+                "--no-sandbox",  # Often needed in containerized environments
             ]
         )
         self.logger.info("Browser is intact!")
@@ -63,9 +65,13 @@ class OzonSearcher:
         
         self.logger.info("Going to ozon.by...")
         await self.page.goto("https://ozon.by")
-        
+
         self.logger.info("Waiting for the page to pass the bot test - 3 seconds...")
         await asyncio.sleep(3.0)
+
+        #html = await self.page.content()
+        #if "document.querySelector('.challenge-information');" in html:
+        #    raise Exception("We didn't pass the bot check")
         
         self.logger.info("Waiting for the page to load fully...")
         await self.page.wait_for_load_state("networkidle")

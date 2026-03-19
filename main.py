@@ -2,6 +2,7 @@ import asyncio
 import config
 import logging
 import re
+import platform
 from scraper import OzonScraper
 
 async def get_input(prompt: str) -> str:
@@ -30,7 +31,13 @@ async def main():
     logger = logging.getLogger("Main")
     logger.info("Ozon Scraper start!")
     scraper = OzonScraper()
-    await scraper.start()
+
+    use_headless = True
+    if platform.system() == "Linux":
+        logger.warning("Disabling headless mode for Linux compatibility")
+        use_headless = False
+
+    await scraper.start(use_headless=use_headless)
 
     try:
         while True:
