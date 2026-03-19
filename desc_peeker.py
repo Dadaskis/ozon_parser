@@ -1,8 +1,7 @@
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 from collected_data import OzonCollectedData
-from ozon_item import OzonItem
-from bs4 import BeautifulSoup, PageElement
+from selectolax.lexbor import LexborHTMLParser, LexborNode
 import logging
 import asyncio
 import re
@@ -92,8 +91,8 @@ class OzonDescriptionPeeker:
 
                 try: 
                     content = await self.page.content()
-                    bs = BeautifulSoup(content, features="lxml")
-                    desc = bs.find("div", id="section-description").get_text()
+                    parser = LexborHTMLParser(content)
+                    desc = parser.css_first("div#section-description").text()
                     data.description = desc
                 except Exception:
                     self.logger.error("Failed to fetch a description", exc_info=True)

@@ -2,7 +2,7 @@ from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 from collected_data import OzonCollectedData
 from ozon_item import OzonItem
-from bs4 import BeautifulSoup, PageElement, SoupStrainer
+from selectolax.lexbor import LexborHTMLParser, LexborNode
 import logging
 import asyncio
 import re
@@ -121,11 +121,11 @@ class OzonSearcher:
             items_count_before = data.get_count()
 
             content = await self.page.content()
-            bs = BeautifulSoup(content, features="lxml")
+            parser = LexborHTMLParser(content)
 
-            grids = bs.find_all("div", attrs = {"data-widget" : "tileGridDesktop"})
+            grids = parser.css('div[data-widget="tileGridDesktop"]')
             for grid in grids:
-                for child in grid.children:
+                for child in grid.iter():
                     item = OzonItem()
                     can_be_added = await self.parse_grid_element(child, item)
                     if can_be_added:
@@ -144,7 +144,7 @@ class OzonSearcher:
             
             for _ in range(5):
                 await self.page.mouse.wheel(0, 500)
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(0.5)
         
         #data.debug_print()
 
@@ -152,61 +152,90 @@ class OzonSearcher:
 
         desc_queue.shutdown()
     
-    async def parse_grid_element(self, child: PageElement, item: OzonItem) -> bool:
-        tags = child.find_all(recursive=False)
+    async def parse_grid_element(self, child: LexborNode, item: OzonItem) -> bool:
+        tags = list(child.iter())
+        new_tags = []
+
+        #self.logger.info("parse_grid_element - Tags~")
+        for tag in tags:
+            if tag.tag == "-comment":
+                continue
+            #self.logger.info(f"Tag {tag.tag} {tag.tag_id}")
+            new_tags.append(tag)
+        tags = new_tags
             
         a_link = tags[0]
-        
-        url = a_link.get("href")
-        if self.parsed_URLs.get(url, False) == True:
+        if a_link:
+            url = a_link.attributes.get("href")
+            if not url or self.parsed_URLs.get(url, False):
+                return False
+            
+            item.url = url
+            self.parsed_URLs[url] = True
+        else:
+            self.logger.error("Couldn't access <a> tag at parse_grid_element")
             return False
-        
-        item.url = url
-        self.parsed_URLs[url] = True
 
         bottom_div = tags[1]
-        await self.parse_grid_bottom_element(bottom_div, item)
+        if bottom_div:
+            await self.parse_grid_bottom_element(bottom_div, item)
+        else:
+            self.logger.error("Couldn't access a 'bottom' <div> at parse_grid_element")
 
         return True
     
-    async def parse_grid_bottom_element(self, bottom_div: PageElement, item: OzonItem):
-        children = bottom_div.find_all(recursive=False)
+    async def parse_grid_bottom_element(self, bottom_div: LexborNode, item: OzonItem):
+        a_name = bottom_div.css_first("a")
+        if a_name:
+            item.name = a_name.text(strip=True)
+        else:
+            self.logger.error("Couldn't access <a> tag at parse_grid_bottom_element")
 
-        a_name = bottom_div.find("a")
-        item.name = a_name.get_text()
+        children = list(bottom_div.iter())
+        
+        if children:
+            div_price = children[0]
+            item.price = await self.parse_price_div(div_price)
+        else:
+            self.logger.error("No children available at parse_grid_bottom_element")
 
-        div_price = children[0]
-        item.price = await self.parse_price_div(div_price)
-
-        div_rating = None
         for child in children:
-            elements = child.find_all(recursive=False)
+            elements = list(child.iter())
             if len(elements) != 2:
                 continue
-            if elements[0].name == "span" and elements[1].name == "span":
-                if len(elements[0].find_all(recursive=False)) == 2:
+            if elements[0].tag == "span" and elements[1].tag == "span":
+                if len(list(elements[0].iter())) == 2:
                     div_rating = child
-        if div_rating:
-            rating, ratings_amount = await self.parse_rating_div(div_rating)
-            item.rating = rating
-            item.ratings_amount = ratings_amount
+                    rating, ratings_amount = await self.parse_rating_div(div_rating)
+                    item.rating = rating
+                    item.ratings_amount = ratings_amount
+                    break
     
     def extract_numbers_regex(self, text):
         """Extract only digits using regex"""
         return re.sub(r'\D', '', text)  # \D matches any non-digit character
     
-    async def parse_price_div(self, div_price: PageElement) -> str:
-        div_price = div_price.find_all(recursive=False)[0]
-        span_price = div_price.find_all(recursive=False)[0]
-        price_text = span_price.get_text()
-        price_text = price_text.split(" ")[0] # This tiny space is a fucking nightmare fuel
-        price_text = price_text.replace(",", ".")
-        return price_text
+    def get_first_child_of_node(self, node: LexborNode) -> LexborNode:
+        return node.iter().__next__() if node.iter() else None
+
+    async def parse_price_div(self, div_price: LexborNode) -> str:
+        first_child = self.get_first_child_of_node(div_price)
+        if first_child:
+            span_price = self.get_first_child_of_node(first_child)
+            if span_price:
+                price_text = span_price.text(deep=False)
+                price_text = price_text.split(" ")[0]  # This tiny space is a fucking nightmare fuel
+                price_text = price_text.replace(",", ".")
+                return price_text
+            else:
+                self.logger.error("Couldn't access a span_price at parse_price_div")
+        else:
+            self.logger.error("Couldn't access a first_child at parse_price_div")
+        return ""
     
-    async def parse_rating_div(self, div_rating: PageElement) -> tuple[str, str]:
-        children = div_rating.find_all(recursive=False)
-        rating = children[0].get_text()
-        ratings_amount = children[1].get_text()
+    async def parse_rating_div(self, div_rating: LexborNode) -> tuple[str, str]:
+        children = list(div_rating.iter())
+        rating = children[0].text() if children else ""
+        ratings_amount = children[1].text() if len(children) > 1 else ""
         ratings_amount = self.extract_numbers_regex(ratings_amount)
         return rating, ratings_amount
-
