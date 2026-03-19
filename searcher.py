@@ -2,7 +2,7 @@ from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 from collected_data import OzonCollectedData
 from ozon_item import OzonItem
-from bs4 import BeautifulSoup, PageElement
+from bs4 import BeautifulSoup, PageElement, SoupStrainer
 import logging
 import asyncio
 import re
@@ -144,7 +144,7 @@ class OzonSearcher:
             
             for _ in range(5):
                 await self.page.mouse.wheel(0, 500)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.25)
         
         #data.debug_print()
 

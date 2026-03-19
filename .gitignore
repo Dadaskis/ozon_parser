@@ -3,3 +3,5 @@ export/
 DEBUG_OUTPUT.html
 .vscode
 speed.prof
+scalene-profile.html
+scalene-profile.json
