@@ -1,6 +1,6 @@
 # Ozon Parser
 
-A web scraper for Ozon.by that collects product information with configurable description fetching. Built with Playwright and BeautifulSoup.
+A web scraper for Ozon.by that collects product information with configurable description fetching. Built with Playwright and Selectolax.
 
 > ⚠️ **Note**: Collects 100 items in ~10 seconds, but fetching descriptions is significantly slower (~8 seconds per item)
 
@@ -108,7 +108,7 @@ Each CSV contains:
 
 - **Async/Await**: Fully asynchronous using `asyncio`
 - **Browser Automation**: Playwright with stealth plugins to avoid detection
-- **Parsing**: BeautifulSoup for HTML parsing
+- **Parsing**: Selectolax for HTML parsing
 - **Data Storage**: Pandas DataFrames with CSV export
 - **Headless Mode**: Runs in headless Chromium by default
 
